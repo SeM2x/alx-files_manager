@@ -1,31 +1,35 @@
 import sha1 from 'sha1';
 import dbClient from '../utils/db';
 
-const AppController = {
-  postNew: async (req, res) => {
-    const { email, password } = req.body;
+export default class UsersController {
+  static async postNew(req, res) {
+    const email = req.body ? req.body.email : null;
+    const password = req.body ? req.body.password : null;
+
     if (!email) {
-      return res.status(400).send({ error: 'Missing email' });
+      res.status(400).json({ error: 'Missing email' });
+      return;
     }
     if (!password) {
-      return res.status(400).send({ error: 'Missing password' });
+      res.status(400).json({ error: 'Missing password' });
+      return;
     }
     const user = await (await dbClient.usersCollection()).findOne({ email });
 
     if (user) {
-      return res.status(400).json({ error: 'Already exist' });
+      res.status(400).json({ error: 'Already exist' });
+      return;
     }
+    const insertionInfo = await (await dbClient.usersCollection())
+      .insertOne({ email, password: sha1(password) });
+    const userId = insertionInfo.insertedId.toString();
 
-    const insertedUser = dbClient.usersCollection().insertOne({
-      email,
-      password: sha1(password),
-    });
+    res.status(201).json({ email, id: userId });
+  }
 
-    return res.status(201).json({
-      id: insertedUser.insertedId.toString(),
-      email,
-    });
-  },
-};
+  static async getMe(req, res) {
+    const { user } = req;
 
-export default AppController;
+    res.status(200).json({ email: user.email, id: user._id.toString() });
+  }
+}
